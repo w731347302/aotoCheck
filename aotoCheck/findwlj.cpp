@@ -279,31 +279,31 @@ void judge(Mat src,Mat img_match)
 				matchTemplate(roi2, digits[k], result, TM_CCOEFF);
 				minMaxLoc(result, NULL, &maxVal, NULL, NULL);
 				cout << maxVal << endl;
-				if (maxVal > maxmaxmax)
+				if ((maxVal/10000000) > maxmaxmax)
 				{
-					maxmaxmax = maxVal;
+					maxmaxmax = (maxVal / 10000000);
 					scores[j] = k;
-				}
-				else
-				{
-					scores[j] = 999;
 				}
 			}
 		}
+		else
+		{
+			scores[j] = 999;
+		}
 	}
-	for (int m = 0; m < img_contours.size();m++)
+	for (int m = 0; m < img_contours.size();m++)  //Êä³ö×Ö·û
 	{
 		if (scores[m] < 4)
 		{
-			if (scores[m] == 0)
+			if (scores[m] == 3)
 			{
 				cout << "Íõ" << endl;
 			}
-			else if (scores[m] == 1)
+			else if (scores[m] == 2)
 			{
 				cout << "ÀÏ" << endl;
 			}
-			else if (scores[m] == 3)
+			else if (scores[m] == 1)
 			{
 				cout << "¼ª" << endl;
 			}
