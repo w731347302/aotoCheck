@@ -6,13 +6,13 @@
 using namespace cv;
 using namespace std;
 										//定义一些hsv空间色彩范围
-Scalar yellow_l = Scalar(24, 43, 46);
+Scalar yellow_l = Scalar(24, 43, 46);				//黄色
 Scalar yellow_h = Scalar(35, 255, 255);
-Scalar red_l = Scalar(0, 43, 46);
+Scalar red_l = Scalar(0, 43, 46);					//红色
 Scalar red_h = Scalar(10, 255, 255);
-Scalar red2_l = Scalar(120, 43, 46);
+Scalar red2_l = Scalar(120, 43, 46);				//品红
 Scalar red2_h = Scalar(180, 255, 255);
-Scalar white_l = Scalar(0, 0, 211);
+Scalar white_l = Scalar(0, 0, 211);					//白色
 Scalar white_h = Scalar(180, 30, 255);
 
 int table_h[] = {24, 35, 0, 10, 120, 180, 0, 180};
@@ -20,7 +20,7 @@ int table_s[] = {43, 255, 43, 255, 43, 255, 0, 30 };
 int table_v[] = {46, 255, 46, 255, 46, 255, 211, 255 };
 
 
-void angle(Mat src)		//纠正倾斜图像
+Mat angle(Mat src)		//纠正倾斜图像
 {
 	Mat img_hsv;
 	Mat img_mask, img_inr, img_ero;
@@ -45,7 +45,7 @@ void angle(Mat src)		//纠正倾斜图像
 	float maxangles = 0;
 	for (int i = 0; i < contours.size(); i++)		//遍历轮廓获得最小矩形和倾斜角度
 	{
-		minRect[i] = minAreaRect(Mat(contours[i]));
+		minRect[i] = minAreaRect(contours[i]);
 
 		// Mat img_draw = Mat::zeros(img_mask.size(), CV_8UC3);
 
@@ -77,7 +77,7 @@ void angle(Mat src)		//纠正倾斜图像
 	putText(img_rot, "Angle:"+string(s), Point(10, 30), FONT_HERSHEY_SCRIPT_SIMPLEX,0.5, Scalar(0, 0, 255), 2);
 	resize(img_rot, img_rot, Size(200, 300));
 	imshow("rotated", img_rot);
-
+	return img_rot;
 }
 
 
@@ -110,11 +110,12 @@ void remove_background(Mat src)  //同色背景去除
 	imshow("img_cut", src);
 }
 
-void color_divide(Mat src, Scalar c_l, Scalar c_h )//暂时分开的颜色分离函数
+Mat color_divide(Mat src, Scalar c_l, Scalar c_h )//暂时分开的颜色分离函数
 {
 	Mat img_hsv, img_mask;
 	cvtColor(src, img_hsv, COLOR_BGR2HSV);
 	inRange(img_hsv, c_l, c_h, img_mask);
+	return img_mask;
 }
 
 int color_choose(Mat src)  //颜色选择，获得图片的主体颜色
@@ -166,7 +167,7 @@ void out_color(int i)	//输出颜色
 	}
 }
 
-void find(Mat src)  //ROI区域寻找
+Mat find(Mat src)  //ROI区域寻找
 {
 	Mat img_gray, kernel, img_blur, img_hat, img_thresh, img_roi;
 	vector<vector<Point>> contours;
@@ -206,20 +207,123 @@ void find(Mat src)  //ROI区域寻找
 	img_roi = src(rect);
 	resize(img_roi, img_roi, Size(200, 300));
 	imshow("roi", img_roi);
+	return img_roi;
 }
 
+void judge(Mat src,Mat img_match)
+{
+	Mat match, img_gray;
+	resize(img_match, match, Size(200, 400));
+	img_gray= color_divide(match, yellow_l, yellow_h);
 
+	vector<vector<Point>> contours;
+	
+	findContours(img_gray, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+	cout << contours.size() << endl;
+
+	vector<Mat> digits(contours.size());
+	vector<Rect> rect(contours.size());
+
+	for (int i = 0; i < contours.size(); i++)
+	{
+		rect[i] = boundingRect(contours[i]);
+		Mat roi;
+		roi = img_gray(rect[i]);
+		resize(roi, roi, Size(100, 100));
+		digits[i] = roi;
+		imshow("roi", roi);
+	}
+
+	resize(src, src, Size(400, 400));
+
+	Mat img_roi, img_mask, img_color;
+	img_roi = find(src);
+	//img_roa = angle(img_roi);
+	img_mask = color_divide(img_roi, yellow_l, yellow_h);
+
+	vector<vector<Point>> img_contours;
+	findContours(img_mask, img_contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+
+	Mat img_draw;
+	img_roi.copyTo(img_draw);
+	drawContours(img_draw, img_contours, -1, Scalar(0, 255, 0), 3);
+
+	imshow("draw", img_draw);
+
+	vector<Mat> img_digits(img_contours.size());
+	vector<Rect> img_rect(img_contours.size());
+	Mat roi2;
+	Mat roi_thr;
+	Mat result;
+	double maxVal;
+	vector<double> scores(img_contours.size());
+
+	for (int j = 0; j < img_contours.size(); j++)
+	{
+		if (contourArea(img_contours[j]) > 300)
+		{
+			img_rect[j] = boundingRect(img_contours[j]);
+			roi2 = img_mask(img_rect[j]);
+			resize(roi2, roi2, Size(100, 100));
+			img_digits[j] = roi2;
+
+			imshow("roi2", roi2);
+
+			//cvtColor(roi2, roi2, COLOR_BGR2GRAY);
+			//threshold(roi2, roi_thr, 0, 255, THRESH_BINARY);
+
+			//imshow("roi_thr", roi_thr);
+			double maxmaxmax = 0;
+			for (int k = 0; k < digits.size(); k++)
+			{
+				matchTemplate(roi2, digits[k], result, TM_CCOEFF);
+				minMaxLoc(result, NULL, &maxVal, NULL, NULL);
+				cout << maxVal << endl;
+				if (maxVal > maxmaxmax)
+				{
+					maxmaxmax = maxVal;
+					scores[j] = k;
+				}
+				else
+				{
+					scores[j] = 999;
+				}
+			}
+		}
+	}
+	for (int m = 0; m < img_contours.size();m++)
+	{
+		if (scores[m] < 4)
+		{
+			if (scores[m] == 0)
+			{
+				cout << "王" << endl;
+			}
+			else if (scores[m] == 1)
+			{
+				cout << "老" << endl;
+			}
+			else if (scores[m] == 3)
+			{
+				cout << "吉" << endl;
+			}
+		}
+	}
+}
 
 
 int main()
 {
 	int ri;
-	Mat src = imread("w8.png");
+	Mat src = imread("w7.png");
+	Mat roi;
+	Mat src_match = imread("w6_1.png");
 	remove_background(src);
-	angle(src);
-	ri = color_choose(src);
-	out_color(ri);
-	find(src);
+	//angle(src);
+	//ri = color_choose(src);
+	//out_color(ri);
+	roi = find(src);
+	judge(src, src_match);
 
 	waitKey(0);
 	return 0;

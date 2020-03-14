@@ -124,10 +124,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="removeBackground.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="removeBackground.h" />
+    <ClCompile Include="findwlj.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
